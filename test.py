@@ -259,16 +259,18 @@ SOP REQUIREMENTS:
 
 TASK: For EACH requirement in the SOP, determine if it was satisfied based on the video observations.
 
-Return ONLY a valid JSON array with this EXACT format:
-[
-    {{
-        "step": "step name from SOP",
-        "point": "exact requirement text from SOP",
-        "satisfied": true or false,
-        "evidence": "specific detailed observation from video describing what was seen",
-        "timestamps": ["00:00", "00:05"]
-    }}
-]
+You MUST wrap your response in a JSON object with a "checklist" key containing the array:
+{{
+    "checklist": [
+        {{
+            "step": "step name from SOP",
+            "point": "exact requirement text from SOP",
+            "satisfied": true or false,
+            "evidence": "specific detailed observation from video describing what was seen",
+            "timestamps": ["00:00", "00:05"]
+        }}
+    ]
+}}
 
 RULES:
 1. Return ONLY the JSON array - no markdown, no explanation, no text before or after
@@ -289,7 +291,8 @@ RULES:
                 {"role": "user", "content": prompt}
             ],
             temperature=0.1,
-            max_tokens=4000,
+            max_tokens=8000,
+            response_format={"type": "json_object"}
         )
         
         result_raw = response.choices[0].message.content.strip()
@@ -304,15 +307,46 @@ RULES:
                 result_raw = result_raw.split("```")[0]
             result_raw = result_raw.strip()
         
-        # Parse JSON
-        checklist = json.loads(result_raw)
+        # Parse JSON - handle both array and object formats
+        parsed_data = json.loads(result_raw)
+        
+        # If it's an object with a key containing the array, extract it
+        if isinstance(parsed_data, dict):
+            # Look for common keys that might contain the array
+            for key in ['checklist', 'items', 'results', 'data', 'compliance']:
+                if key in parsed_data and isinstance(parsed_data[key], list):
+                    checklist = parsed_data[key]
+                    break
+            else:
+                # If no known key found, try to find any list value
+                for value in parsed_data.values():
+                    if isinstance(value, list):
+                        checklist = value
+                        break
+                else:
+                    raise ValueError("Could not find array in response object")
+        else:
+            checklist = parsed_data
+        
         print(f"✅ Successfully parsed {len(checklist)} compliance items")
         
-        return checklist
+        # Validate each item has required fields
+        validated_checklist = []
+        for item in checklist:
+            validated_item = {
+                "step": item.get("step", "Unknown"),
+                "point": item.get("point", "Unknown requirement"),
+                "satisfied": item.get("satisfied", False),
+                "evidence": item.get("evidence", "No evidence provided"),
+                "timestamps": item.get("timestamps", [])
+            }
+            validated_checklist.append(validated_item)
+        
+        return validated_checklist
         
     except json.JSONDecodeError as e:
         print(f"❌ JSON parsing error: {e}")
-        print(f"Raw response: {result_raw[:1000]}")
+        print(f"Raw response: {result_raw[:1000] if 'result_raw' in locals() else 'No response'}")
         # Return error items for all SOP points
         return [{
             "step": point['step'],

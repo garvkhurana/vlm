@@ -172,7 +172,7 @@ def caption_frames(frames):
     return captions
 
 def generate_analysis_report(captions_json, sop_points):
-    """Generate analysis report using Groq."""
+    """Generate analysis report using Groq that includes compliance analysis."""
     # Group points by step for better organization
     steps = {}
     for point in sop_points:
@@ -180,129 +180,120 @@ def generate_analysis_report(captions_json, sop_points):
             steps[point['step']] = []
         steps[point['step']].append(point['point'])
     
+    # Simplified prompt for more reliable parsing
     prompt = f"""
-You are a professional manufacturing process auditor with expertise in quality control and safety compliance.
+You are a professional manufacturing process auditor. Analyze the video observations against the SOP requirements.
+Return ONLY a valid JSON object matching this exact structure (no additional text or formatting):
 
-Below is JSON data describing observations from a manufacturing video:
-{json.dumps(captions_json, indent=2)}
-
-And below is the Standard Operating Procedure (SOP) organized by steps:
-{json.dumps(steps, indent=2)}
-
-Generate a **comprehensive manufacturing inspection report** that:
-
-1. **Executive Summary** - Brief overview of the process and key findings
-2. **Step-by-Step Analysis** - Detailed analysis of each step and its requirements
-3. **Compliance Review** - Which procedures were followed and which were missed
-4. **Safety Assessment** - Identification of safety concerns and violations
-5. **Quality Control Findings** - Process quality and consistency issues
-6. **Recommendations** - Specific improvements for each step
-7. **Conclusion** - Overall assessment and priority actions
-
-Requirements:
-- Analyze each step separately
-- Use professional, technical language
-- Be specific with timestamps when referencing observations
-- Clearly mark compliance gaps
-- Format in clean Markdown with proper headers
-"""
-
-    print(" Generating analysis report...")
-    response = client.chat.completions.create(
-        model="openai/gpt-oss-120b",
-        messages=[
-            {"role": "system", "content": "You are a senior manufacturing quality auditor and safety expert."},
-            {"role": "user", "content": prompt}
+{{
+    "report": {{
+        "executive_summary": "string",
+        "compliance_analysis": [
+            {{
+                "step": "string",
+                "requirements": ["string"],
+                "observations": ["string"],
+                "compliance_status": "compliant|non-compliant|partial",
+                "evidence": "string",
+                "issues": ["string"],
+                "recommendations": ["string"]
+            }}
         ],
-        temperature=0.3,
-        max_tokens=3000,
-    )
-
-    return response.choices[0].message.content
-
-def generate_compliance_checklist(captions_json, sop_points):
-    """Generate structured compliance checklist using Groq."""
-    checklist = []
-    
-    print(f" Analyzing {len(sop_points)} SOP points...")
-    
-    # Group points by step
-    steps = {}
-    for point in sop_points:
-        step = point['step']
-        if step not in steps:
-            steps[step] = []
-        steps[step].append(point['point'])
-    
-    # Process each step
-    for step, points in steps.items():
-        step_prompt = f"""
-Analyze these SOP requirements for {step}:
-
-Requirements:
-{json.dumps(points, indent=2)}
+        "safety_assessment": ["string"],
+        "quality_findings": ["string"],
+        "recommendations": ["string"],
+        "overall_compliance_rate": "number%"
+    }}
+}}
 
 Video Observations:
 {json.dumps(captions_json, indent=2)}
 
-Return ONLY a JSON array of objects (no markdown, no extra text) where each object has this format:
-{{
-    "step": "{step}",
-    "point": "the original requirement text",
-    "satisfied": true/false,
-    "evidence": "specific evidence from observations",
-    "timestamps": ["mm:ss", "mm:ss"]
-}}
-
-Be strict in compliance assessment. Only mark as satisfied if there is clear evidence.
+SOP Requirements:
+{json.dumps(steps, indent=2)}
 """
 
-        try:
-            response = client.chat.completions.create(
-                model="openai/gpt-oss-120b",
-                messages=[
-                    {"role": "system", "content": "You are a strict compliance auditor. Return ONLY valid JSON array."},
-                    {"role": "user", "content": step_prompt}
-                ],
-                temperature=0.1,
-                max_tokens=256,
-            )
+    print(" Generating comprehensive analysis...")
+    try:
+        response = client.chat.completions.create(
+            model="openai/gpt-oss-120b",
+            messages=[
+                {"role": "system", "content": "You are a manufacturing auditor. Return ONLY valid JSON matching the specified structure."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.1,  # Lower temperature for more consistent output
+            max_tokens=3000,
+        )
 
-            result_raw = response.choices[0].message.content.strip()
-            
-            # Clean markdown formatting if present
-            if result_raw.startswith("```"):
-                result_raw = result_raw.split("```")[1]
-                if result_raw.startswith("json"):
-                    result_raw = result_raw[4:]
-                result_raw = result_raw.strip()
-            
+        # Clean the response content
+        content = response.choices[0].message.content.strip()
+        if content.startswith('{') and content.endswith('}'):
+            # Attempt to parse the JSON response
             try:
-                result = json.loads(result_raw)
-                checklist.extend(result)
-                print(f" ✓ Analyzed step: {step}")
-            except json.JSONDecodeError:
-                print(f" ✗ Error parsing response for step: {step}")
-                checklist.append({
-                    "step": step,
-                    "point": "Error analyzing this step",
-                    "satisfied": False,
-                    "evidence": "Error parsing response",
-                    "timestamps": []
-                })
+                result = json.loads(content)
                 
-        except Exception as e:
-            print(f" ✗ Error processing step: {str(e)}")
-            checklist.append({
-                "step": step,
-                "point": "Error processing this step",
-                "satisfied": False,
-                "evidence": "Error processing this requirement",
-                "timestamps": []
-            })
-    
-    print(f" Completed analysis of {len(checklist)} points")
-    return checklist
+                # Convert the JSON response to a formatted markdown report
+                markdown_report = f"""
+# Manufacturing Process Analysis Report
+
+## Executive Summary
+{result['report']['executive_summary']}
+
+## Compliance Analysis
+"""
+                for step in result['report']['compliance_analysis']:
+                    markdown_report += f"""
+### {step['step']}
+- **Requirements:** {', '.join(step['requirements'])}
+- **Observations:** {', '.join(step['observations'])}
+- **Status:** {step['compliance_status']}
+- **Evidence:** {step['evidence']}
+- **Issues:** {', '.join(step['issues'])}
+- **Recommendations:** {', '.join(step['recommendations'])}
+"""
+
+                markdown_report += f"""
+## Safety Assessment
+{chr(10).join('- ' + item for item in result['report']['safety_assessment'])}
+
+## Quality Control Findings
+{chr(10).join('- ' + item for item in result['report']['quality_findings'])}
+
+## Recommendations
+{chr(10).join('- ' + item for item in result['report']['recommendations'])}
+
+## Overall Compliance
+{result['report']['overall_compliance_rate']}
+"""
+
+                return {
+                    'markdown': markdown_report,
+                    'compliance_data': result['report']['compliance_analysis'],
+                    'compliance_rate': float(result['report']['overall_compliance_rate'].rstrip('%'))
+                }
+
+            except json.JSONDecodeError:
+                print(" Error parsing LLM response")
+                return {
+                    'markdown': "Error generating report",
+                    'compliance_data': [],
+                    'compliance_rate': 0
+                }
+        else:
+            print(" Invalid response format")
+            return {
+                'markdown': "Error: Invalid response format",
+                'compliance_data': [],
+                'compliance_rate': 0
+            }
+
+    except Exception as e:
+        print(f"Error generating report: {e}")
+        return {
+            'markdown': "Error generating report",
+            'compliance_data': [],
+            'compliance_rate': 0
+        }
 
 @app.route("/")
 def index():
@@ -340,29 +331,21 @@ def analyze():
         print(" Analyzing video content...")
         captions_json = caption_frames(frames)
 
-        # Generate analysis report
+        # Generate combined analysis report
         print(" Generating analysis report...")
-        report = generate_analysis_report(captions_json, sop_points)
-
-        # Generate compliance checklist
-        print(" Evaluating SOP compliance...")
-        checklist = generate_compliance_checklist(captions_json, sop_points)
+        analysis_result = generate_analysis_report(captions_json, sop_points)
 
         print(" Analysis complete!")
-
-        # Calculate compliance
-        satisfied_count = sum(1 for item in checklist if item.get("satisfied", False))
-        compliance_rate = (satisfied_count / len(checklist) * 100) if checklist else 0
 
         return jsonify({
             "status": "success",
             "message": "Analysis complete",
             "sop_points": sop_points,
-            "checklist": checklist,
-            "report_markdown": report,
-            "compliance_rate": round(compliance_rate, 1),
-            "satisfied_count": satisfied_count,
-            "total_items": len(checklist)
+            "checklist": analysis_result['compliance_data'],
+            "report_markdown": analysis_result['markdown'],
+            "compliance_rate": analysis_result['compliance_rate'],
+            "satisfied_count": len([x for x in analysis_result['compliance_data'] if x['compliance_status'].lower() == 'compliant']),
+            "total_items": len(analysis_result['compliance_data'])
         })
 
     except Exception as e:

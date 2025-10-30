@@ -63,18 +63,20 @@
         .download-btn:hover { background: var(--secondary-color); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4); }
         .download-btn i { font-size: 18px; }
         
-        /* Checklist Items */
+        /* Checklist Items - Updated for 3 colors */
         .checklist-container { max-height: 600px; overflow-y: auto; }
         .checklist-item { background: #f8f9fa; border-radius: 12px; padding: 18px; margin-bottom: 12px; border-left: 5px solid #cbd5e0; transition: all 0.4s; position: relative; display: flex; align-items: flex-start; gap: 12px; }
         .checklist-item.analyzing { background: linear-gradient(135deg, #fff3cd 0%, #ffe69c 100%); border-left-color: var(--warning-color); }
         .checklist-item.satisfied { background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%); border-left-color: var(--success-color); }
-        .checklist-item.not-satisfied { background: linear-gradient(135deg, #fee 0%, #fdd 100%); border-left-color: var(--danger-color); }
+        .checklist-item.partial { background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%); border-left-color: var(--warning-color); }
+        .checklist-item.not_satisfied { background: linear-gradient(135deg, #fee 0%, #fdd 100%); border-left-color: var(--danger-color); }
         .checklist-item:hover { transform: translateX(5px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
         
         .status-circle { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 700; flex-shrink: 0; transition: all 0.4s; }
         .status-circle.analyzing { background: var(--warning-color); color: white; animation: spin 2s linear infinite; }
         .status-circle.satisfied { background: var(--success-color); color: white; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4); }
-        .status-circle.not-satisfied { background: var(--danger-color); color: white; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4); }
+        .status-circle.partial { background: var(--warning-color); color: white; box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4); }
+        .status-circle.not_satisfied { background: var(--danger-color); color: white; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4); }
         
         .item-content { flex: 1; }
         .item-text { font-size: 15px; color: #2d3748; font-weight: 500; line-height: 1.5; margin-bottom: 6px; }
@@ -85,7 +87,7 @@
         /* Three Dot Menu */
         .menu-dots { cursor: pointer; padding: 8px; color: #718096; transition: color 0.2s; position: relative; }
         .menu-dots:hover { color: var(--primary-color); }
-        .menu-dropdown { display: none; position: absolute; right: 0; top: 100%; background: white; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); z-index: 100; min-width: 200px; overflow: hidden; }
+        .menu-dropdown { display: none; position: absolute; right: 0; top: 100%; background: white; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); z-index: 100; min-width: 220px; overflow: hidden; }
         .menu-dropdown.active { display: block; animation: menuSlide 0.2s ease-out; }
         @keyframes menuSlide { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
         .menu-item { padding: 14px 18px; cursor: pointer; transition: background 0.2s; display: flex; align-items: center; gap: 12px; color: #2d3748; font-size: 14px; font-weight: 500; }
@@ -131,6 +133,18 @@
         .progress-bar-outer { background: #e2e8f0; height: 20px; border-radius: 10px; overflow: hidden; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1); }
         .progress-bar-inner { background: linear-gradient(90deg, var(--success-color), #059669); height: 100%; border-radius: 10px; transition: width 0.5s ease; display: flex; align-items: center; justify-content: flex-end; padding-right: 10px; color: white; font-size: 12px; font-weight: 600; }
         
+        /* Stats Display */
+        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 15px; }
+        .stat-box { background: white; border-radius: 10px; padding: 15px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .stat-box.satisfied { border-left: 4px solid var(--success-color); }
+        .stat-box.partial { border-left: 4px solid var(--warning-color); }
+        .stat-box.not_satisfied { border-left: 4px solid var(--danger-color); }
+        .stat-number { font-size: 24px; font-weight: 700; margin-bottom: 5px; }
+        .stat-box.satisfied .stat-number { color: var(--success-color); }
+        .stat-box.partial .stat-number { color: var(--warning-color); }
+        .stat-box.not_satisfied .stat-number { color: var(--danger-color); }
+        .stat-label { font-size: 12px; color: #718096; font-weight: 600; text-transform: uppercase; }
+        
         /* Responsive */
         @media (max-width: 1024px) {
             .content-grid { grid-template-columns: 1fr; }
@@ -139,6 +153,7 @@
         @media (max-width: 768px) {
             .header-content { flex-direction: column; gap: 20px; text-align: center; }
             .download-buttons { flex-direction: column; }
+            .stats-grid { grid-template-columns: 1fr; }
         }
         
         .step-section { margin-bottom: 30px; }
@@ -207,7 +222,7 @@
                             <div class="upload-icon"><i class="fas fa-file-alt"></i></div>
                             <div class="upload-title">Standard Operating Procedure</div>
                             <div class="upload-subtitle">Upload your SOP document (Only TXT)</div>
-                            <input type="file" id="sopFile" accept=".txt,.pdf" style="display: none;">
+                            <input type="file" id="sopFile" accept=".txt" style="display: none;">
                             <button type="button" class="upload-button" onclick="event.stopPropagation(); document.getElementById('sopFile').click()">
                                 <i class="fas fa-plus"></i> Select SOP
                             </button>
@@ -263,12 +278,29 @@
                     </div>
 
                     <div id="checklistProgress" style="display: none; margin-top: 20px;">
-                        <div class="progress-label">
-                            <span>Compliance Rate</span>
-                            <span id="progressText">0/0</span>
+                        <div class="stats-grid">
+                            <div class="stat-box satisfied">
+                                <div class="stat-number" id="satisfiedCount">0</div>
+                                <div class="stat-label">Satisfied</div>
+                            </div>
+                            <div class="stat-box partial">
+                                <div class="stat-number" id="partialCount">0</div>
+                                <div class="stat-label">Partial</div>
+                            </div>
+                            <div class="stat-box not_satisfied">
+                                <div class="stat-number" id="notSatisfiedCount">0</div>
+                                <div class="stat-label">Not Met</div>
+                            </div>
                         </div>
-                        <div class="progress-bar-outer">
-                            <div id="checklistProgressBar" class="progress-bar-inner" style="width: 0%;">0%</div>
+                        
+                        <div style="margin-top: 20px;">
+                            <div class="progress-label">
+                                <span>Compliance Rate</span>
+                                <span id="progressText">0/0</span>
+                            </div>
+                            <div class="progress-bar-outer">
+                                <div id="checklistProgressBar" class="progress-bar-inner" style="width: 0%;">0%</div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -289,7 +321,6 @@
         let globalChecklistData = [];
         let globalReportMarkdown = '';
         const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB limit
-        // Map composite indices (e.g., "0-2") to flat indices in globalChecklistData
         let checklistIndexMap = {};
 
         // File validation function
@@ -300,8 +331,7 @@
             if (type === 'video') {
                 if (!file.type.startsWith('video/')) return { valid: false, error: 'Invalid video file format' };
             } else if (type === 'sop') {
-                const validTypes = ['application/pdf', 'text/plain'];
-                if (!validTypes.includes(file.type)) return { valid: false, error: 'Invalid SOP file format (PDF or TXT only)' };
+                if (file.type !== 'text/plain') return { valid: false, error: 'Invalid SOP file format (TXT only)' };
             }
             
             return { valid: true };
@@ -338,7 +368,7 @@
             }
         });
 
-        // Form submission with enhanced error handling and CSRF protection
+        // Form submission
         document.getElementById('uploadForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
@@ -346,7 +376,6 @@
             const videoFile = document.getElementById('videoFile').files[0];
             const sopFile = document.getElementById('sopFile').files[0];
             
-            // Validate both files
             const videoValidation = validateFile(videoFile, 'video');
             const sopValidation = validateFile(sopFile, 'sop');
             
@@ -357,7 +386,6 @@
             
             formData.append('video', videoFile);
             formData.append('sop', sopFile);
-            formData.append('csrf_token', document.querySelector('meta[name="csrf-token"]')?.content);
             
             const loadingOverlay = document.getElementById('loadingOverlay');
             const submitBtn = document.getElementById('submitBtn');
@@ -365,14 +393,10 @@
             try {
                 loadingOverlay.classList.add('active');
                 submitBtn.disabled = true;
-                document.querySelector('.loading-content p').textContent = 'Processing...';
                 
                 const response = await fetch('/analyze', {
                     method: 'POST',
-                    body: formData,
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest'
-                    }
+                    body: formData
                 });
                 
                 if (!response.ok) {
@@ -399,13 +423,11 @@
             }
         });
 
-        // Display analysis report
         function displayAnalysisReport(markdown) {
             const content = document.getElementById('analysisContent');
             content.innerHTML = marked.parse(markdown);
         }
 
-        // Display checklist with progressive animation
         async function displayChecklistWithAnimation(checklist) {
             const container = document.getElementById('checklistContainer');
             const progressContainer = document.getElementById('checklistProgress');
@@ -427,11 +449,9 @@
                 groupedChecklist[item.step].push(item);
             });
             
-            // reset mapping
             checklistIndexMap = {};
             let flatIndex = 0;
 
-            // Create step sections
             Object.entries(groupedChecklist).forEach(([step, items], stepIndex) => {
                 const stepSection = document.createElement('div');
                 stepSection.className = 'step-section';
@@ -441,7 +461,6 @@
                     </div>
                 `;
                 
-                // Add items to step section
                 items.forEach((item, index) => {
                     const compositeIndex = `${stepIndex}-${index}`;
                     checklistIndexMap[compositeIndex] = flatIndex++;

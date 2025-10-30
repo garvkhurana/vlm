@@ -2,7 +2,6 @@ import os
 import cv2
 import json
 import torch
-import fitz
 import tempfile
 import shutil
 import re
@@ -39,14 +38,6 @@ client = Groq(api_key=GROQ_API_KEY)
 
 # Flask setup
 app = Flask(__name__)
-
-def extract_text_from_pdf(pdf_path):
-    """Extract text from PDF file."""
-    text = ""
-    with fitz.open(pdf_path) as doc:
-        for page in doc:
-            text += page.get_text()
-    return text.strip()
 
 def extract_sop_points(sop_text):
     """Split SOP text into individual checklist points organized by steps."""
@@ -330,20 +321,14 @@ def analyze():
         if not video_file or not sop_file:
             return jsonify({"error": "Both video and SOP files are required."}), 400
 
+        if not sop_file.filename.lower().endswith('.txt'):
+            return jsonify({"error": "Only .txt files are supported for SOP."}), 400
+
         print(f" Processing files: {video_file.filename}, {sop_file.filename}")
 
-        # Create temporary directory for SOP
-        temp_dir = tempfile.mkdtemp()
-        
-        # Extract SOP
-        print(" Extracting SOP...")
-        if sop_file.filename.lower().endswith(".pdf"):
-            sop_path = os.path.join(temp_dir, "temp.pdf")
-            sop_file.save(sop_path)
-            sop_text = extract_text_from_pdf(sop_path)
-        else:
-            sop_text = sop_file.read().decode('utf-8')
-        
+        # Extract SOP text directly from txt file
+        print(" Reading SOP...")
+        sop_text = sop_file.read().decode('utf-8')
         sop_points = extract_sop_points(sop_text)
         print(f" Extracted {len(sop_points)} SOP points")
 

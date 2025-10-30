@@ -239,13 +239,13 @@ def generate_compliance_checklist(captions_json, sop_points):
     
     print(f"🔍 Analyzing {len(sop_points)} SOP points...")
     
-    # Group points by step for better context
-    steps = {}
+    # Create a detailed list of all SOP points with their steps
+    sop_requirements = []
     for point in sop_points:
-        step = point['step']
-        if step not in steps:
-            steps[step] = []
-        steps[step].append(point['point'])
+        sop_requirements.append({
+            "step": point['step'],
+            "requirement": point['point']
+        })
     
     # Single comprehensive prompt with all checkpoints
     prompt = f"""
@@ -254,29 +254,30 @@ You are a strict manufacturing compliance auditor. Your task is to evaluate vide
 VIDEO OBSERVATIONS (with timestamps):
 {json.dumps(captions_json, indent=2)}
 
-SOP REQUIREMENTS BY STEP:
-{json.dumps(steps, indent=2)}
+SOP REQUIREMENTS:
+{json.dumps(sop_requirements, indent=2)}
 
 TASK: For EACH requirement in the SOP, determine if it was satisfied based on the video observations.
 
 Return ONLY a valid JSON array with this EXACT format:
 [
     {{
-        "step": "step name",
-        "point": "exact requirement text",
+        "step": "step name from SOP",
+        "point": "exact requirement text from SOP",
         "satisfied": true or false,
-        "evidence": "specific observation from video with timestamp",
+        "evidence": "specific detailed observation from video describing what was seen",
         "timestamps": ["00:00", "00:05"]
     }}
 ]
 
 RULES:
 1. Return ONLY the JSON array - no markdown, no explanation, no text before or after
-2. Include ALL requirements from the SOP
+2. Include ALL requirements from the SOP (all {len(sop_requirements)} items)
 3. Be strict: only mark satisfied=true if there is CLEAR, SPECIFIC evidence in the observations
 4. If no evidence found, set satisfied=false and evidence="No evidence observed in video"
 5. Always include timestamps from the observations when evidence exists
-6. Keep evidence concise but specific
+6. For evidence field: provide a detailed description of what was observed (2-3 sentences minimum when satisfied=true)
+7. Copy the exact "step" and "point" text from the SOP requirements provided
 """
 
     try:

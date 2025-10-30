@@ -244,7 +244,7 @@ def generate_compliance_checklist(captions_json, sop_points):
     for point in sop_points:
         sop_requirements.append({
             "step": point['step'],
-            "requirement": point['point']
+            "point": point['point']
         })
     
     # Single comprehensive prompt with all checkpoints

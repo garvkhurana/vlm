@@ -180,37 +180,58 @@ def generate_analysis_report(captions_json, sop_points):
             steps[point['step']] = []
         steps[point['step']].append(point['point'])
     
-    # Simplified prompt for more reliable parsing
     prompt = f"""
-You are a professional manufacturing process auditor. Analyze the video observations against the SOP requirements.
-Return ONLY a valid JSON object matching this exact structure (no additional text or formatting):
+You are a professional manufacturing process auditor with expertise in quality control and safety compliance.
 
+Task: Generate a detailed analysis of the manufacturing process based on the video observations and SOP requirements.
+
+Video Observations (chronological order):
+{json.dumps(captions_json, indent=2)}
+
+Standard Operating Procedure (SOP) Requirements:
+{json.dumps(steps, indent=2)}
+
+Return a JSON object with the following EXACT structure (no markdown, no additional text):
 {{
     "report": {{
-        "executive_summary": "string",
+        "executive_summary": "<detailed summary of overall process analysis, key findings, and major concerns>",
         "compliance_analysis": [
             {{
-                "step": "string",
-                "requirements": ["string"],
-                "observations": ["string"],
+                "step": "<step name>",
+                "requirements": ["<detailed requirement 1>", "<requirement 2>", ...],
+                "observations": ["<specific observation with timestamp>", ...],
                 "compliance_status": "compliant|non-compliant|partial",
-                "evidence": "string",
-                "issues": ["string"],
-                "recommendations": ["string"]
+                "evidence": "<detailed evidence from video observations>",
+                "issues": ["<specific issue 1>", "<issue 2>", ...],
+                "recommendations": ["<specific recommendation 1>", "<recommendation 2>", ...]
             }}
         ],
-        "safety_assessment": ["string"],
-        "quality_findings": ["string"],
-        "recommendations": ["string"],
-        "overall_compliance_rate": "number%"
+        "safety_assessment": [
+            "<detailed safety observation 1>",
+            "<detailed safety observation 2>",
+            ...
+        ],
+        "quality_findings": [
+            "<detailed quality finding 1>",
+            "<detailed quality finding 2>",
+            ...
+        ],
+        "recommendations": [
+            "<prioritized recommendation 1>",
+            "<prioritized recommendation 2>",
+            ...
+        ],
+        "overall_compliance_rate": "<number>%"
     }}
 }}
 
-Video Observations:
-{json.dumps(captions_json, indent=2)}
-
-SOP Requirements:
-{json.dumps(steps, indent=2)}
+Analysis Requirements:
+1. Each observation must include specific timestamps
+2. Evidence must cite specific actions or missing elements
+3. Issues must be clearly linked to SOP requirements
+4. Recommendations must be actionable and specific
+5. Safety concerns must be highlighted with priority levels
+6. Quality findings must reference industry standards where applicable
 """
 
     print(" Generating comprehensive analysis...")
@@ -218,79 +239,82 @@ SOP Requirements:
         response = client.chat.completions.create(
             model="openai/gpt-oss-120b",
             messages=[
-                {"role": "system", "content": "You are a manufacturing auditor. Return ONLY valid JSON matching the specified structure."},
+                {
+                    "role": "system", 
+                    "content": "You are a senior manufacturing quality auditor and safety expert. Always return valid JSON without any markdown formatting or additional text."
+                },
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.1,  # Lower temperature for more consistent output
+            temperature=0.1,
             max_tokens=3000,
         )
 
-        # Clean the response content
+        # Clean and parse response
         content = response.choices[0].message.content.strip()
-        if content.startswith('{') and content.endswith('}'):
-            # Attempt to parse the JSON response
-            try:
-                result = json.loads(content)
-                
-                # Convert the JSON response to a formatted markdown report
-                markdown_report = f"""
+        # Remove any markdown formatting if present
+        if '```' in content:
+            content = content.split('```')[1]
+            if content.startswith('json'):
+                content = content[4:]
+            content = content.strip()
+        
+        # Parse JSON
+        result = json.loads(content)
+        
+        # Validate required fields
+        required_fields = ['executive_summary', 'compliance_analysis', 'safety_assessment', 
+                         'quality_findings', 'recommendations', 'overall_compliance_rate']
+        if not all(field in result['report'] for field in required_fields):
+            raise ValueError("Missing required fields in response")
+
+        # Generate markdown report
+        markdown_report = f"""
 # Manufacturing Process Analysis Report
 
 ## Executive Summary
 {result['report']['executive_summary']}
 
-## Compliance Analysis
+## Compliance Analysis by Step
 """
-                for step in result['report']['compliance_analysis']:
-                    markdown_report += f"""
+        for step in result['report']['compliance_analysis']:
+            markdown_report += f"""
 ### {step['step']}
-- **Requirements:** {', '.join(step['requirements'])}
-- **Observations:** {', '.join(step['observations'])}
-- **Status:** {step['compliance_status']}
+- **Requirements:**
+  {chr(10).join('  - ' + req for req in step['requirements'])}
+- **Observations:**
+  {chr(10).join('  - ' + obs for obs in step['observations'])}
+- **Compliance Status:** {step['compliance_status']}
 - **Evidence:** {step['evidence']}
-- **Issues:** {', '.join(step['issues'])}
-- **Recommendations:** {', '.join(step['recommendations'])}
+- **Issues Identified:**
+  {chr(10).join('  - ' + issue for issue in step['issues'])}
+- **Recommendations:**
+  {chr(10).join('  - ' + rec for rec in step['recommendations'])}
 """
 
-                markdown_report += f"""
+        markdown_report += f"""
 ## Safety Assessment
 {chr(10).join('- ' + item for item in result['report']['safety_assessment'])}
 
 ## Quality Control Findings
 {chr(10).join('- ' + item for item in result['report']['quality_findings'])}
 
-## Recommendations
+## Improvement Recommendations
 {chr(10).join('- ' + item for item in result['report']['recommendations'])}
 
-## Overall Compliance
+## Overall Compliance Rate
 {result['report']['overall_compliance_rate']}
 """
 
-                return {
-                    'markdown': markdown_report,
-                    'compliance_data': result['report']['compliance_analysis'],
-                    'compliance_rate': float(result['report']['overall_compliance_rate'].rstrip('%'))
-                }
-
-            except json.JSONDecodeError:
-                print(" Error parsing LLM response")
-                return {
-                    'markdown': "Error generating report",
-                    'compliance_data': [],
-                    'compliance_rate': 0
-                }
-        else:
-            print(" Invalid response format")
-            return {
-                'markdown': "Error: Invalid response format",
-                'compliance_data': [],
-                'compliance_rate': 0
-            }
+        return {
+            'markdown': markdown_report,
+            'compliance_data': result['report']['compliance_analysis'],
+            'compliance_rate': float(result['report']['overall_compliance_rate'].rstrip('%'))
+        }
 
     except Exception as e:
-        print(f"Error generating report: {e}")
+        print(f" Error in analysis generation: {str(e)}")
         return {
-            'markdown': "Error generating report",
+            'markdown': "Error: Unable to generate analysis report. Please try again.",
             'compliance_data': [],
             'compliance_rate': 0
         }

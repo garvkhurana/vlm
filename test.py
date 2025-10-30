@@ -265,7 +265,7 @@ You MUST wrap your response in a JSON object with a "checklist" key containing t
         {{
             "step": "step name from SOP",
             "point": "exact requirement text from SOP",
-            "satisfied": true or false,
+            "status": "satisfied" or "partial" or "not_satisfied",
             "evidence": "specific detailed observation from video describing what was seen",
             "timestamps": ["00:00", "00:05"]
         }}
@@ -273,13 +273,16 @@ You MUST wrap your response in a JSON object with a "checklist" key containing t
 }}
 
 RULES:
-1. Return ONLY the JSON array - no markdown, no explanation, no text before or after
+1. Return ONLY the JSON object - no markdown, no explanation, no text before or after
 2. Include ALL requirements from the SOP (all {len(sop_requirements)} items)
-3. Be strict: only mark satisfied=true if there is CLEAR, SPECIFIC evidence in the observations
-4. If no evidence found, set satisfied=false and evidence="No evidence observed in video"
-5. Always include timestamps from the observations when evidence exists
-6. For evidence field: provide a detailed description of what was observed (2-3 sentences minimum when satisfied=true)
-7. Copy the exact "step" and "point" text from the SOP requirements provided
+3. Use three status levels:
+   - "satisfied": Clear, complete evidence that requirement is fully met
+   - "partial": Some evidence found but requirement not fully met or only partially visible
+   - "not_satisfied": No evidence found or requirement clearly not met
+4. Always include timestamps from the observations when evidence exists
+5. For evidence field: provide a detailed description of what was observed (2-3 sentences minimum)
+6. Copy the exact "step" and "point" text from the SOP requirements provided
+7. Be strict in evaluation - when in doubt between satisfied and partial, choose partial
 """
 
     try:

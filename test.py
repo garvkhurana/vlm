@@ -172,7 +172,7 @@ def caption_frames(frames):
     return captions
 
 def generate_analysis_report(captions_json, sop_points):
-    """Generate analysis report using Groq that includes compliance analysis."""
+    """Generate analysis report using Groq."""
     # Group points by step for better organization
     steps = {}
     for point in sop_points:
@@ -183,55 +183,39 @@ def generate_analysis_report(captions_json, sop_points):
     prompt = f"""
 You are a professional manufacturing process auditor with expertise in quality control and safety compliance.
 
-Task: Generate a detailed analysis of the manufacturing process based on the video observations and SOP requirements.
-
-Video Observations (chronological order):
+Below is JSON data describing observations from a manufacturing video:
 {json.dumps(captions_json, indent=2)}
 
-Standard Operating Procedure (SOP) Requirements:
+And below is the Standard Operating Procedure (SOP) organized by steps:
 {json.dumps(steps, indent=2)}
 
-Return a JSON object with the following EXACT structure (no markdown, no additional text):
+Generate a **comprehensive manufacturing inspection report** in the following JSON format (no additional text or markdown):
 {{
     "report": {{
-        "executive_summary": "<detailed summary of overall process analysis, key findings, and major concerns>",
-        "compliance_analysis": [
+        "executive_summary": "<detailed overview>",
+        "step_analysis": [
             {{
-                "step": "<step name>",
-                "requirements": ["<detailed requirement 1>", "<requirement 2>", ...],
-                "observations": ["<specific observation with timestamp>", ...],
+                "step_name": "<step name>",
+                "requirements": "<detailed requirements>",
+                "observations": "<observations with timestamps>",
                 "compliance_status": "compliant|non-compliant|partial",
-                "evidence": "<detailed evidence from video observations>",
-                "issues": ["<specific issue 1>", "<issue 2>", ...],
-                "recommendations": ["<specific recommendation 1>", "<recommendation 2>", ...]
+                "issues": ["<issue 1>", "<issue 2>"],
+                "recommendations": ["<recommendation 1>", "<recommendation 2>"]
             }}
         ],
-        "safety_assessment": [
-            "<detailed safety observation 1>",
-            "<detailed safety observation 2>",
-            ...
-        ],
-        "quality_findings": [
-            "<detailed quality finding 1>",
-            "<detailed quality finding 2>",
-            ...
-        ],
-        "recommendations": [
-            "<prioritized recommendation 1>",
-            "<prioritized recommendation 2>",
-            ...
-        ],
-        "overall_compliance_rate": "<number>%"
+        "safety_concerns": ["<concern 1>", "<concern 2>"],
+        "quality_issues": ["<issue 1>", "<issue 2>"],
+        "priority_actions": ["<action 1>", "<action 2>"],
+        "overall_compliance": "<number>%"
     }}
 }}
 
-Analysis Requirements:
-1. Each observation must include specific timestamps
-2. Evidence must cite specific actions or missing elements
-3. Issues must be clearly linked to SOP requirements
-4. Recommendations must be actionable and specific
-5. Safety concerns must be highlighted with priority levels
-6. Quality findings must reference industry standards where applicable
+Requirements:
+- Analyze each step separately
+- Use professional, technical language
+- Be specific with timestamps when referencing observations
+- Clearly mark compliance gaps
+- Format response as valid JSON only
 """
 
     print(" Generating comprehensive analysis...")
@@ -241,7 +225,7 @@ Analysis Requirements:
             messages=[
                 {
                     "role": "system", 
-                    "content": "You are a senior manufacturing quality auditor and safety expert. Always return valid JSON without any markdown formatting or additional text."
+                    "content": "You are a senior manufacturing quality auditor. Return ONLY valid JSON."
                 },
                 {"role": "user", "content": prompt}
             ],
@@ -249,23 +233,14 @@ Analysis Requirements:
             max_tokens=3000,
         )
 
-        # Clean and parse response
         content = response.choices[0].message.content.strip()
-        # Remove any markdown formatting if present
         if '```' in content:
             content = content.split('```')[1]
             if content.startswith('json'):
                 content = content[4:]
             content = content.strip()
-        
-        # Parse JSON
+
         result = json.loads(content)
-        
-        # Validate required fields
-        required_fields = ['executive_summary', 'compliance_analysis', 'safety_assessment', 
-                         'quality_findings', 'recommendations', 'overall_compliance_rate']
-        if not all(field in result['report'] for field in required_fields):
-            raise ValueError("Missing required fields in response")
 
         # Generate markdown report
         markdown_report = f"""
@@ -274,48 +249,61 @@ Analysis Requirements:
 ## Executive Summary
 {result['report']['executive_summary']}
 
-## Compliance Analysis by Step
+## Step-by-Step Analysis
 """
-        for step in result['report']['compliance_analysis']:
+        for step in result['report']['step_analysis']:
             markdown_report += f"""
-### {step['step']}
-- **Requirements:**
-  {chr(10).join('  - ' + req for req in step['requirements'])}
-- **Observations:**
-  {chr(10).join('  - ' + obs for obs in step['observations'])}
-- **Compliance Status:** {step['compliance_status']}
-- **Evidence:** {step['evidence']}
-- **Issues Identified:**
-  {chr(10).join('  - ' + issue for issue in step['issues'])}
-- **Recommendations:**
-  {chr(10).join('  - ' + rec for rec in step['recommendations'])}
+### {step['step_name'] if step['step_name'] else 'Step Analysis'}
+**Requirements:** {step['requirements']}
+
+**Observations:** {step['observations']}
+
+**Compliance Status:** {step['compliance_status']}
+
+**Issues Identified:**
+{chr(10).join('- ' + issue for issue in step['issues'])}
+
+**Recommendations:**
+{chr(10).join('- ' + rec for rec in step['recommendations'])}
 """
 
         markdown_report += f"""
-## Safety Assessment
-{chr(10).join('- ' + item for item in result['report']['safety_assessment'])}
+## Safety Concerns
+{chr(10).join('- ' + item for item in result['report']['safety_concerns'])}
 
-## Quality Control Findings
-{chr(10).join('- ' + item for item in result['report']['quality_findings'])}
+## Quality Control Issues
+{chr(10).join('- ' + item for item in result['report']['quality_issues'])}
 
-## Improvement Recommendations
-{chr(10).join('- ' + item for item in result['report']['recommendations'])}
+## Priority Actions
+{chr(10).join('- ' + item for item in result['report']['priority_actions'])}
 
 ## Overall Compliance Rate
-{result['report']['overall_compliance_rate']}
+{result['report']['overall_compliance']}
 """
 
         return {
             'markdown': markdown_report,
-            'compliance_data': result['report']['compliance_analysis'],
-            'compliance_rate': float(result['report']['overall_compliance_rate'].rstrip('%'))
+            'compliance_data': result['report']['step_analysis'],
+            'compliance_rate': float(result['report']['overall_compliance'].rstrip('%'))
         }
 
     except Exception as e:
         print(f" Error in analysis generation: {str(e)}")
+        # Return a properly structured fallback response
         return {
-            'markdown': "Error: Unable to generate analysis report. Please try again.",
-            'compliance_data': [],
+            'markdown': """# Manufacturing Process Analysis Report
+
+## Error
+Unable to generate analysis report. Please try again.
+""",
+            'compliance_data': [{
+                'step_name': 'Error',
+                'requirements': 'Analysis failed',
+                'observations': 'Could not process analysis',
+                'compliance_status': 'non-compliant',
+                'issues': ['Analysis generation failed'],
+                'recommendations': ['Please try again']
+            }],
             'compliance_rate': 0
         }
 
